@@ -1,0 +1,94 @@
+// Read/write client for the EXISTING ParcelTrack Railway database.
+// DO NOT run migrate/push against this schema in production integration workflows.
+// This file mirrors the existing ParcelTrack models required for compatible inserts.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/parceltrack-client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Shipment {
+  id                    String         @id @default(cuid())
+  trackingNumber        String         @unique
+  buyerName             String
+  orderId               String
+  originCountry         String
+  destinationCountry    String
+  destinationAddress    String
+  weightKg              Float?
+  shippingType          ShippingType   @default(STANDARD)
+  notes                 String?
+
+  shippingDate          DateTime       @default(now())
+  estimatedDeliveryDate DateTime
+
+  currentStatus         ShipmentStatus @default(ORDER_RECEIVED)
+  currentStatusIndex    Int            @default(0)
+  isManualOverride      Boolean        @default(false)
+  isArchived            Boolean        @default(false)
+
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  timeline              TimelineEvent[]
+
+  @@index([trackingNumber])
+  @@index([orderId])
+  @@index([buyerName])
+  @@index([currentStatus])
+  @@index([createdAt])
+  @@map("shipments")
+}
+
+enum ShippingType {
+  STANDARD
+  EXPRESS
+  AIR_FREIGHT
+  SEA_FREIGHT
+  ECONOMY
+}
+
+enum ShipmentStatus {
+  ORDER_RECEIVED
+  PACKAGE_PREPARED
+  PICKED_UP
+  PROCESSING_FACILITY
+  EXPORT_CUSTOMS
+  DEPARTED
+  IN_TRANSIT
+  ARRIVED
+  IMPORT_CUSTOMS
+  SORTING
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+model TimelineEvent {
+  id          String         @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  status      ShipmentStatus
+  order       Int
+  title       String
+  description String
+  location    String
+  icon        String
+  color       String
+
+  occursAt    DateTime
+  isCompleted Boolean        @default(false)
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([shipmentId, status])
+  @@index([shipmentId])
+  @@map("timeline_events")
+}

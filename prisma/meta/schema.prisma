@@ -1,0 +1,93 @@
+// Bridge-owned metadata database (separate Railway PostgreSQL).
+// Stores registered WooCommerce stores, hashed API keys, and crash-safe
+// idempotency / synchronization state. Never modify ParcelTrack schema.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/bridge-meta-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("BRIDGE_META_DATABASE_URL")
+}
+
+model Store {
+  id           String   @id @default(cuid())
+  name         String
+  externalRef  String?  @unique
+  apiKeyHash   String
+  apiKeyPrefix String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reservations IdempotencyRecord[]
+  syncEvents   SyncEvent[]
+
+  @@index([apiKeyPrefix])
+  @@map("stores")
+}
+
+/// Durable reservation for crash-safe, store-aware shipment creation.
+/// trackingNumber is allocated BEFORE any ParcelTrack insert so recovery
+/// can always reconcile via ParcelTrack's unique trackingNumber.
+/// leaseOwner + fenceToken provide fencing for concurrent workers.
+model IdempotencyRecord {
+  id                    String            @id @default(cuid())
+  storeId               String
+  store                 Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  wooOrderId            String
+  trackingNumber        String            @unique
+  parceltrackShipmentId String?
+
+  status                IdempotencyStatus @default(RESERVED)
+  requestFingerprint    String?
+  lastError             String?
+  attemptCount          Int               @default(0)
+
+  /// Opaque owner of the current lease (request/worker id).
+  leaseOwner            String?
+  /// Monotonic fence token incremented on every successful lease acquisition.
+  fenceToken            Int               @default(0)
+  leaseExpiresAt        DateTime?
+
+  /// Attested WooCommerce payment timestamp (never invented by Bridge).
+  paymentConfirmedAt    DateTime?
+  paymentEvidence       String?
+  orderStatusAttested   String?
+
+  completedAt           DateTime?
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@unique([storeId, wooOrderId])
+  @@index([status])
+  @@index([trackingNumber])
+  @@index([leaseExpiresAt])
+  @@map("idempotency_records")
+}
+
+enum IdempotencyStatus {
+  RESERVED
+  COMPLETED
+  FAILED
+}
+
+model SyncEvent {
+  id             String   @id @default(cuid())
+  storeId        String
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  wooOrderId     String
+  trackingNumber String?
+  success        Boolean
+  message        String
+  mode           String?
+  createdAt      DateTime @default(now())
+
+  @@index([storeId, createdAt])
+  @@index([wooOrderId])
+  @@map("sync_events")
+}
