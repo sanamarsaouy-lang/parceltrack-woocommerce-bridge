@@ -1,0 +1,35 @@
+{
+  "name": "parceltrack-bridge-api",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Standalone Bridge API connecting WooCommerce stores to the existing ParcelTrack Railway database",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate --schema prisma/parceltrack/schema.prisma && prisma generate --schema prisma/meta/schema.prisma",
+    "prisma:meta:push": "prisma db push --schema prisma/meta/schema.prisma",
+    "test": "tsx --test test/**/*.test.ts",
+    "postinstall": "npm run prisma:generate"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.17.19",
+    "prisma": "6.19.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
