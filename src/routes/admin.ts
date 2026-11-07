@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 import { z } from "zod";
 import { requireAdminAuth, requireStoreAuth, type AuthedRequest } from "../middleware/auth";
@@ -5,6 +6,7 @@ import {
   createStore,
   getRecentSyncDiagnostics,
   listStores,
+  rotateStoreApiKey,
 } from "../lib/store-service";
 
 export const adminRouter = Router();
@@ -34,6 +36,35 @@ adminRouter.post("/api/admin/stores", requireAdminAuth, async (req, res, next) =
     next(error);
   }
 });
+
+adminRouter.post(
+  "/api/admin/stores/:storeId/rotate-key",
+  requireAdminAuth,
+  async (req, res, next) => {
+    try {
+      const storeId = z.string().trim().min(1).max(120)
+        .parse(req.params.storeId);
+
+      const result = await rotateStoreApiKey(storeId);
+
+      if (!result) {
+        return res.status(404).json({
+          error: "Active store not found",
+        });
+      }
+
+      return res.json({
+        ok: true,
+        storeId: result.storeId,
+        apiKey: result.apiKey,
+        warning:
+          "Save this API key now. The previous key is invalid and this key will not be shown again.",
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 adminRouter.get("/api/admin/stores", requireAdminAuth, async (_req, res, next) => {
   try {
