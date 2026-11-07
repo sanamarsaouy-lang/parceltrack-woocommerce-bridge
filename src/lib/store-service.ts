@@ -1,3 +1,4 @@
+
 import { metaDb } from "../db/meta";
 import { apiKeyPrefix, generateApiKey, hashApiKey, safeEqualHex } from "./crypto";
 import { config } from "../config";
@@ -37,9 +38,25 @@ export async function createStore(name: string, externalRef?: string | null) {
     id: store.id,
     name: store.name,
     externalRef: store.externalRef,
-    apiKey, // plaintext returned once
+    apiKey,
     createdAt: store.createdAt,
   };
+}
+
+export async function rotateStoreApiKey(storeId: string) {
+  const apiKey = generateApiKey();
+
+  const updated = await metaDb.store.updateMany({
+    where: { id: storeId, isActive: true },
+    data: {
+      apiKeyHash: hashApiKey(apiKey),
+      apiKeyPrefix: apiKeyPrefix(apiKey),
+    },
+  });
+
+  if (updated.count !== 1) return null;
+
+  return { storeId, apiKey };
 }
 
 export async function listStores() {
