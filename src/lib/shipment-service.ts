@@ -299,7 +299,7 @@ export async function createShipmentCrashSafe(
         destinationAddress: input.destinationAddress,
         weightKg: input.weightKg ?? null,
         shippingType: input.shippingType,
-        notes: noteParts.join(" | ").slice(0, 2000),
+        notes: null,
         shippingDate,
         estimatedDeliveryDate,
         currentStatus: "ORDER_RECEIVED",
